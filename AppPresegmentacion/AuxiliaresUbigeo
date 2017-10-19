@@ -1,0 +1,41 @@
+import arcpy
+import os
+
+## Agregar Campo Ubigeo
+##
+with arcpy.da.UpdateCursor("Distritos",["CCDD","CCPP","CCDI","Ubigeo"]) as cursor:
+    for i in cursor:
+        i[3] = str(i[0]+i[1]+i[2])
+        cursor.updateRow(i)
+        arcpy.AddWarning("ubigeo {}".format(cursor[0]))
+
+## Hacer buffer a cada distrito
+##
+arcpy.CopyFeatures_management("Distritos",r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\Buffer')
+arcpy.DeleteRows_management(r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\Buffer')
+with arcpy.da.SearchCursor("Distritos",["Ubigeo","ID"]) as cursor:
+    for i in cursor:
+        new_feature = arcpy.MakeFeatureLayer_management("Distritos",
+                                          r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\nuevo',
+                                          '"ID" = {}'.format(i[1]))
+        # sel = arcpy.CopyFeatures_management("Distritos",r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\Temporal_2',"ID = {}".format(i[1]))
+        temp = arcpy.Buffer_analysis(new_feature,r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\Temporal',"2000 Meters")
+        buf = arcpy.Append_management(temp, r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\Buffer', "NO_TEST", "", "")
+
+
+## Hacer clip y agregar valor de ubigeo
+##
+arcpy.CopyFeatures_management("CurvasNivel",r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\CurvasNivel2')
+arcpy.DeleteRows_management(r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\CurvasNivel2')
+arcpy.AddField_management("CurvasNivel", "UBIGEO","TEXT")
+
+Distritos = r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\Distritos'
+CurvasNivel2 = r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\CurvasNivel2'
+
+
+with arcpy.da.SearchCursor(Distritos ,["Ubigeo"]) as cursor2:
+    for i in cursor2:
+        sel = arcpy.SelectLayerByAttribute_management("Distritos", "NEW_SELECTION", "[Ubigeo] = {}".format(i[0]))
+        clip_temp = arcpy.ClipManagement("CurvasNivel",sel, r'D:\SegmentacionRuralV2\Insumos\CapasAuxiliares\NuevasCapas.gdb\Temporal\CurvasTemporal')
+        arcpy.Append_management(clip_temp , CurvasNivel2,"NO_TEST", "", "")
+        print i
